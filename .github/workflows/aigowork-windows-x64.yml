@@ -1,0 +1,41 @@
+name: AiGoWork Windows x64 package
+
+on:
+  push:
+    branches: [aigowork-windows-x64]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build Windows x64 MSIX
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      HERMES_PAYLOAD_TAG: v0.21.7
+      HERMES_RELEASE_EPOCH: "1791775065"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build desktop client
+        run: npm run build --workspace apps/desktop
+
+      - name: Package MSIX
+        run: npm run builder --workspace apps/desktop -- --win --x64 msix -c.extraMetadata.version=0.21.7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AiGoWork-Windows-x64-v0.21.7
+          path: apps/desktop/release/*-win-x64.msix
+          if-no-files-found: error
+          retention-days: 14
