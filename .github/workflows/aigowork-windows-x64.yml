@@ -38,7 +38,12 @@ jobs:
           python scripts/aigowork-windows-icons.py
 
       - name: Build desktop client
-        run: npm run build --workspace apps/desktop
+        shell: pwsh
+        run: |
+          # Bootstrap installs the official runtime, so its pin must exist upstream.
+          $env:GITHUB_SHA = '71d34bad1045610252eda02ee79549436896e784'
+          $env:GITHUB_REF_NAME = 'main'
+          npm run build --workspace apps/desktop
 
       - name: Package MSIX
         shell: pwsh
