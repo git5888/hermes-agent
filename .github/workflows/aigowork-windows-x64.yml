@@ -41,7 +41,17 @@ jobs:
         run: npm run build --workspace apps/desktop
 
       - name: Package MSIX
-        run: npm run builder --workspace apps/desktop -- --win --x64 msix -c.extraMetadata.version=0.21.7
+        shell: pwsh
+        run: |
+          npm run builder --workspace apps/desktop -- --win --x64 msix -c.extraMetadata.version=0.21.7 2>&1 | Tee-Object -FilePath windows-package.log
+          $result = $LASTEXITCODE
+          if ($result -ne 0) {
+            Get-Content windows-package.log -Tail 35 | ForEach-Object {
+              $line = $_ -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+              Write-Host "::error::$line"
+            }
+            exit $result
+          }
 
       - name: Sign custom installation package
         shell: pwsh
