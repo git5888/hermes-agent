@@ -348,3 +348,9 @@ function windowsSigning() {
     }
   }
 }
+
+if (process.env.AIGOWORK_WINDOWS_BUILD === '1') {
+  module.exports.msix.publisher = 'CN=AiGoWork'
+  module.exports.msix.publisherDisplayName = 'AiGoWork'
+  module.exports.msix.identityName = 'AiGoWork.Desktop'
+}
