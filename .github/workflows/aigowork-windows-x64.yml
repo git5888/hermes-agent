@@ -43,7 +43,8 @@ jobs:
       - name: Package MSIX
         shell: pwsh
         run: |
-          npm run builder --workspace apps/desktop -- --win --x64 msix -c.extraMetadata.version=0.21.7 2>&1 | Tee-Object -FilePath windows-package.log
+          if ((node -p 'process.arch') -ne 'x64') { throw 'An x64 Windows runner is required' }
+          node apps/desktop/scripts/run-electron-builder.mjs --win msix '-c.extraMetadata.version=0.21.7' 2>&1 | Tee-Object -FilePath windows-package.log
           $result = $LASTEXITCODE
           if ($result -ne 0) {
             Get-Content windows-package.log -Tail 35 | ForEach-Object {
