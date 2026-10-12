@@ -1,0 +1,93 @@
+name: AiGoWork Windows x64 EXE installer
+
+on:
+  push:
+    branches: [aigowork-windows-x64]
+    paths:
+      - '.github/workflows/aigowork-windows-exe.yml'
+      - 'scripts/aigowork-windows-exe.mjs'
+      - 'scripts/aigowork-windows-nsis.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked packaging tools
+        run: npm ci --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: AiGoWork-Windows-x64-v0.21.7
+          run-id: 38244398373
+          github-token: ${{ github.token }}
+          path: artifacts/msix
+      - name: Extract verified desktop payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msix = (Resolve-Path artifacts/msix/AiGoWork-0.21.7-win-x64.msix).Path
+          $hash = (Get-FileHash -Algorithm SHA256 $msix).Hash.ToLowerInvariant()
+          if ($hash -ne '478f89e613dd0075a131da5da2c1a55dd86d20ee7dd4ddc4bc589509e4a890f7') { throw 'Desktop payload checksum mismatch' }
+          $output = Join-Path $env:RUNNER_TEMP 'aigowork-exe-payload'
+          [System.IO.Compression.ZipFile]::ExtractToDirectory($msix, $output)
+          Move-Item (Join-Path $output 'app/Hermes.exe') (Join-Path $output 'app/AiGoWork.exe')
+          "AIGOWORK_PREPACKAGED_DIR=$(Join-Path $output 'app')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare AiGoWork installer icon
+        run: |
+          python -m pip install Pillow
+          python scripts/aigowork-windows-icons.py
+      - name: Build Chinese EXE installation wizard
+        shell: pwsh
+        run: |
+          node scripts/aigowork-windows-exe.mjs 2>&1 | Tee-Object -FilePath windows-exe-package.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content windows-exe-package.log -Tail 25 | ForEach-Object { Write-Host "::error::$_" }
+            exit 1
+          }
+      - name: Verify installation and desktop startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = (Get-ChildItem apps/desktop/release-exe/AiGoWork-Setup-*-win-x64.exe | Select-Object -First 1).FullName
+          $installDir = Join-Path $env:RUNNER_TEMP 'aigowork-install-test'
+          $setup = Start-Process $installer -ArgumentList @('/S', '/currentuser', "/D=$installDir") -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Installer exited with code $($setup.ExitCode)" }
+          $exe = Join-Path $installDir 'AiGoWork.exe'
+          if (!(Test-Path $exe)) { throw 'Installed executable is missing' }
+          $env:HERMES_HOME = Join-Path $env:RUNNER_TEMP 'aigowork-test-home'
+          $process = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 30
+          $process.Refresh()
+          if ($process.HasExited) { throw "Desktop exited during startup with code $($process.ExitCode)" }
+          $logPath = Join-Path $env:HERMES_HOME 'logs/desktop.log'
+          if (!(Test-Path $logPath)) { throw 'Desktop startup log was not created' }
+          $report = @{ installerExitCode = $setup.ExitCode; installedExecutable = $exe; startupProcessAlive = !$process.HasExited; windowHandle = $process.MainWindowHandle.ToInt64(); startupLogCreated = $true; installerSha256 = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant(); testedOn = [Environment]::OSVersion.Version.ToString(); conversationTested = $false }
+          $report | ConvertTo-Json | Set-Content apps/desktop/release-exe/verification.json
+          Copy-Item $logPath apps/desktop/release-exe/windows-startup.log
+          Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AiGoWork-EXE-x64-v0.21.7
+          path: |
+            apps/desktop/release-exe/AiGoWork-Setup-*-win-x64.exe
+            apps/desktop/release-exe/verification.json
+            apps/desktop/release-exe/windows-startup.log
+            windows-exe-package.log
+          if-no-files-found: error
+          retention-days: 14
