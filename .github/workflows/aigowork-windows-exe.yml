@@ -68,7 +68,8 @@ jobs:
           $stamp = Get-Content upstream/apps/desktop/build/install-stamp.json | ConvertFrom-Json
           if ($stamp.commit -ne $env:HERMES_BUILD_COMMIT -or $stamp.displayVersion -ne $env:HERMES_PAYLOAD_VERSION) { throw 'Desktop provenance mismatch' }
           $payload = (Resolve-Path upstream/apps/desktop/release/win-unpacked).Path
-          $executableName = $stamp.identity.windowsExecutableName
+          $executableName = node -p "require('./upstream/apps/desktop/product-identity.cjs').windowsExecutableName"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not resolve desktop product identity' }
           if (!$executableName -or $executableName -notmatch '^[A-Za-z][A-Za-z0-9 ._-]{0,79}$') { throw 'Invalid executable name in desktop provenance' }
           Move-Item (Join-Path $payload "$executableName.exe") (Join-Path $payload 'AiGoWork.exe')
           "AIGOWORK_PREPACKAGED_DIR=$payload" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
