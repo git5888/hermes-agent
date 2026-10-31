@@ -1,27 +1,34 @@
-module.exports = {
-  extends: null,
-  appId: 'com.aigowork.desktop',
-  productName: 'AiGoWork',
-  artifactName: 'AiGoWork-Setup-${version}-win-${arch}.${ext}',
-  extraMetadata: { version: '0.21.7', author: { name: 'AiGoWork' } },
-  directories: { output: 'release-exe', buildResources: 'assets' },
-  publish: null,
-  win: { target: ['nsis'], icon: 'assets/icon.ico' },
-  nsis: {
-    oneClick: false,
-    perMachine: false,
-    selectPerMachineByDefault: false,
-    allowToChangeInstallationDirectory: true,
-    createDesktopShortcut: true,
-    createStartMenuShortcut: true,
-    shortcutName: 'AiGoWork',
-    runAfterFinish: false,
-    deleteAppDataOnUninstall: false,
-    unicode: true,
-    installerLanguages: ['zh_CN'],
-    language: '2052',
-    displayLanguageSelector: false,
-    installerIcon: 'assets/icon.ico',
-    uninstallerIcon: 'assets/icon.ico',
-  },
-};
+const semver = require('semver')
+
+module.exports = function createInstallerConfig(version) {
+  if (typeof version !== 'string' || !semver.valid(version)) {
+    throw new Error('A valid explicit installer version is required')
+  }
+  return {
+    extends: null,
+    appId: 'com.aigowork.desktop',
+    productName: 'AiGoWork',
+    artifactName: 'AiGoWork-Setup-${version}-win-${arch}.${ext}',
+    extraMetadata: { version, author: { name: 'AiGoWork' } },
+    directories: { output: 'release-exe', buildResources: 'assets' },
+    publish: null,
+    win: { target: ['nsis'], icon: 'assets/icon.ico' },
+    nsis: {
+      oneClick: false,
+      perMachine: false,
+      selectPerMachineByDefault: false,
+      allowToChangeInstallationDirectory: true,
+      createDesktopShortcut: true,
+      createStartMenuShortcut: true,
+      shortcutName: 'AiGoWork',
+      runAfterFinish: false,
+      deleteAppDataOnUninstall: false,
+      unicode: true,
+      installerLanguages: ['zh_CN'],
+      language: '2052',
+      displayLanguageSelector: false,
+      installerIcon: 'assets/icon.ico',
+      uninstallerIcon: 'assets/icon.ico'
+    }
+  }
+}
