@@ -68,7 +68,9 @@ jobs:
           $stamp = Get-Content upstream/apps/desktop/build/install-stamp.json | ConvertFrom-Json
           if ($stamp.commit -ne $env:HERMES_BUILD_COMMIT -or $stamp.displayVersion -ne $env:HERMES_PAYLOAD_VERSION) { throw 'Desktop provenance mismatch' }
           $payload = (Resolve-Path upstream/apps/desktop/release/win-unpacked).Path
-          Move-Item (Join-Path $payload 'Hermes.exe') (Join-Path $payload 'AiGoWork.exe')
+          $executableName = $stamp.identity.windowsExecutableName
+          if (!$executableName -or $executableName -notmatch '^[A-Za-z][A-Za-z0-9 ._-]{0,79}$') { throw 'Invalid executable name in desktop provenance' }
+          Move-Item (Join-Path $payload "$executableName.exe") (Join-Path $payload 'AiGoWork.exe')
           "AIGOWORK_PREPACKAGED_DIR=$payload" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           New-Item -ItemType Directory -Force apps/desktop/release-exe | Out-Null
           Copy-Item upstream/apps/desktop/build/install-stamp.json apps/desktop/release-exe/source-stamp.json
